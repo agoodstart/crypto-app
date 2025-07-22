@@ -1,62 +1,52 @@
-from flask import Flask, request, redirect, url_for, render_template
+from flask import Flask, render_template, request, redirect, url_for
 import psycopg2
-import logging
 
 app = Flask(__name__)
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+# Default credentials
+DEFAULT_USERNAME = "admin"
+DEFAULT_PASSWORD = "password123"
 
-# RDS database configuration
-db_host = 'microservice.caywlfxrbtml.eu-central-1.rds.amazonaws.com'
-db_port = '5432'
-db_user = 'postgres'
-db_password = '8nDzLEzeyBXqyODaJa3j'
-db_name = 'microservice'
-table_name = 'users'
-
-# Database Connection
-def get_db_connection():
-    try:
-        conn = psycopg2.connect(
-            dbname=db_name, 
-            user=db_user, 
-            password=db_password, 
-            host=db_host
-        )
-        logging.debug("Database connection successful.")
-        return conn
-    except Exception as e:
-        logging.debug(f"Database connection failed: {e}")
-        return None
-
-# Routes
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def login():
-    return render_template('login.html')
+    error = None
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
 
-@app.route('/login', methods=['POST'])
-def login_post():
-    email = request.form['email']
-    password = request.form['password']
+        # Check if provided credentials match the default ones
+        if username == DEFAULT_USERNAME and password == DEFAULT_PASSWORD:
+            return redirect(url_for('welcome'))
+        else:
+            error = 'Invalid Credentials. Please try again.'
 
-    conn = get_db_connection()
-    if conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE email = %s AND password = %s", (email, password))
-        user = cursor.fetchone()
-        cursor.close()
-        conn.close()
+    return render_template('login.html', error=error)
 
-        if user:
-            return redirect(url_for('product'))
+@app.route('/welcomepage')
+def welcome():
+    return render_template('product.html')
+
+@app.route('/place_order')
+def place_order():
+    product_id = request.args.get('product')
+    return render_template('place_order.html', product_id=product_id)
+
+@app.route('/submit_order', methods=['POST'])
+def submit_order():
+    product_id = request.form['product_id']
+    name = request.form['name']
+    address = request.form['address']
+    quantity = request.form['quantity']
+
+    # Here you would process the order, e.g., save it to a database
+    # and possibly prepare for payment processing
+
+    return render_template('order_confirmation.html', name=name, product_id=product_id, quantity=quantity, address=address)
+
+@app.route('/external_service')
+def external_service():
+    #return 'For external-service'
+    return render_template('external_service.html')
     
-    return redirect(url_for('login'))
-
-@app.route('/product')
-def product():
-    return redirect("http://crypto-app-882103207.eu-central-1.elb.amazonaws.com:5000/welcomepage")
-    #return "Hello, this is the product page."
-
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
